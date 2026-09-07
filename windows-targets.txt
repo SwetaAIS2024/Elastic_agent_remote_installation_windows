@@ -1,0 +1,3 @@
+# windows target machiens
+
+10.50.130.29

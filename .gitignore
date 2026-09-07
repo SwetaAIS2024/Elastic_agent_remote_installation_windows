@@ -1,0 +1,7 @@
+*.log
+Log_server.txt
+*.tmp
+*.bak
+*.zip
+lnx_enrollment_token.txt
+windows_enrollment_token.txt
