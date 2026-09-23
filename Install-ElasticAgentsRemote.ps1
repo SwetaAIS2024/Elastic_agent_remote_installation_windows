@@ -112,6 +112,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $script:UseTargetsFile = -not [string]::IsNullOrWhiteSpace($TargetsFile)
 $script:TranscriptStarted = $false
+$script:ManageServiceScript = Join-Path -Path $PSScriptRoot -ChildPath 'Manage-ElasticAgentService.ps1'
 $script:TokenBstr = [IntPtr]::Zero
 $script:PlainEnrollmentToken = $null
 
@@ -557,6 +558,24 @@ function Invoke-ElasticAgentDeployment {
                 $result['Status'] = 'ALREADY_INSTALLED'
                 $result['AgentVersion'] = $precheck.Version
                 $result['ServiceStatus'] = $precheck.ServiceStatus
+
+                if ($precheck.ServiceStatus -ne 'Running' -and (Test-Path -LiteralPath $script:ManageServiceScript -PathType Leaf)) {
+                    Write-Log "$computerName has Elastic Agent installed but not running (StartType issue after a reboot?); attempting to start it." 'WARN'
+                    try {
+                        & $script:ManageServiceScript -Action Start -Targets $computerName -CredentialFile $CredentialFile -EnsureAutomaticStartup | Out-Null
+                        if ($LASTEXITCODE -eq 0) {
+                            $result['ServiceStatus'] = 'Running'
+                            Write-Log "$computerName service started successfully." 'PASS'
+                        }
+                        else {
+                            Write-Log "$computerName service start attempt did not report success (exit code $LASTEXITCODE); check manually." 'WARN'
+                        }
+                    }
+                    catch {
+                        Write-Log "$computerName automatic service start failed: $($_.Exception.Message)" 'WARN'
+                    }
+                }
+
                 Write-Log "$computerName already has Elastic Agent; installation skipped." 'WARN'
                 $results += [pscustomobject]$result
                 continue
